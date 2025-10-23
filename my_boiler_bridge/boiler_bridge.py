@@ -52,13 +52,22 @@ def on_message(client, userdata, msg):
         client.publish("homeassistant/number/boiler_temp/state", str(temp), retain=True)
 
 def main():
+    print("Début de main()")
+    sys.stdout.flush()
+    
+    print("Lecture des options...")
+    sys.stdout.flush()
     options = json.loads(os.environ.get('OPTIONS', '{}'))
+    print(f"Options: {options}")
+    sys.stdout.flush()
+    
     tcp_host = options.get('tcp_host')
     tcp_port = options.get('tcp_port')
     mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
+    sys.stdout.flush()
     
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning)
