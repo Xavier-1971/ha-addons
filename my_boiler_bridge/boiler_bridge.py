@@ -70,15 +70,24 @@ def main():
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     sys.stdout.flush()
     
+    print("Création client MQTT...")
+    sys.stdout.flush()
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     client = mqtt.Client()
+    print("Client MQTT créé")
+    sys.stdout.flush()
+    
     client.user_data_set((tcp_host, tcp_port))
     client.on_message = on_message
+    print("Callbacks configurés")
+    sys.stdout.flush()
     
     print("Connexion à MQTT...")
+    sys.stdout.flush()
     client.connect(mqtt_host, mqtt_port, 60)
     print("Connecté à MQTT")
+    sys.stdout.flush()
     
     # Switch ON/OFF
     switch_config = {
