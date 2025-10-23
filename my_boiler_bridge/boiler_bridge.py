@@ -64,8 +64,10 @@ def main():
     # Utiliser les valeurs par défaut si options vide
     tcp_host = options.get('tcp_host', '192.168.1.16')
     tcp_port = options.get('tcp_port', 8899)
-    mqtt_host = options.get('mqtt_host', '127.0.0.1')  # IP locale au lieu de core-mosquitto
+    mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
+    mqtt_user = options.get('mqtt_user', '')
+    mqtt_password = options.get('mqtt_password', '')
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     sys.stdout.flush()
@@ -85,15 +87,38 @@ def main():
     client.user_data_set((tcp_host, tcp_port))
     client.on_message = on_message
     client.on_connect = on_connect
+    
+    # Configuration authentification MQTT
+    if mqtt_user:
+        client.username_pw_set(mqtt_user, mqtt_password)
+        print(f"Authentification MQTT configurée pour: {mqtt_user}")
+    else:
+        print("Pas d'authentification MQTT")
+    sys.stdout.flush()
+    
     print("Callbacks configurés")
     sys.stdout.flush()
     
     print("Connexion à MQTT...")
     sys.stdout.flush()
-    client.connect(mqtt_host, mqtt_port, 60)
-    client.loop_start()
-    print("Connecté à MQTT")
-    sys.stdout.flush()
+    try:
+        client.connect(mqtt_host, mqtt_port, 60)
+        client.loop_start()
+        print("Connecté à MQTT")
+        sys.stdout.flush()
+    except Exception as e:
+        print(f"Erreur connexion MQTT: {e}")
+        print("Tentative avec 'localhost'...")
+        sys.stdout.flush()
+        try:
+            client.connect('localhost', mqtt_port, 60)
+            client.loop_start()
+            print("Connecté à MQTT via localhost")
+            sys.stdout.flush()
+        except Exception as e2:
+            print(f"Erreur connexion localhost: {e2}")
+            sys.stdout.flush()
+            return
     
     # Attendre que la connexion soit stable
     time.sleep(2)
