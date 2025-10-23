@@ -54,10 +54,15 @@ def main():
     mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
     
-    client = mqtt.Client()
+    print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
+    
+    client = mqtt.Client(client_id="boiler_bridge")
     client.user_data_set((tcp_host, tcp_port))
     client.on_message = on_message
+    
+    print("Connexion à MQTT...")
     client.connect(mqtt_host, mqtt_port, 60)
+    print("Connecté à MQTT")
     
     # Switch ON/OFF
     switch_config = {
@@ -67,8 +72,10 @@ def main():
         "unique_id": "boiler_power",
         "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
     }
+    print("Publication configuration switch...")
     client.publish("homeassistant/switch/boiler_power/config", json.dumps(switch_config), retain=True)
     client.publish("homeassistant/switch/boiler_power/state", "OFF", retain=True)
+    print("Switch configuré")
     
     # Number pour consigne température (plus simple que climate)
     temp_config = {
@@ -82,12 +89,17 @@ def main():
         "unique_id": "boiler_temp",
         "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
     }
+    print("Publication configuration temperature...")
     client.publish("homeassistant/number/boiler_temp/config", json.dumps(temp_config), retain=True)
     client.publish("homeassistant/number/boiler_temp/state", "50", retain=True)
+    print("Temperature configurée")
     
+    print("Souscription aux topics...")
     client.subscribe("homeassistant/switch/boiler_power/set")
     client.subscribe("homeassistant/number/boiler_temp/set")
+    print("Souscriptions actives")
     
+    print("Démarrage de la boucle MQTT...")
     client.loop_forever()
 
 if __name__ == "__main__":
