@@ -37,13 +37,13 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()
     
-    if topic == "homeassistant/switch/boiler_power/set":
+    if topic == "boiler/switch/set":
         if payload == "ON":
             envoyer_trame_tcp(tcp_host, tcp_port, "J30253000000000001", client)  # mise en marche
-            client.publish("homeassistant/switch/boiler_power/state", "ON", retain=True)
+            client.publish("boiler/switch/state", "ON", retain=True)
         else:
             envoyer_trame_tcp(tcp_host, tcp_port, "J30254000000000001", client)  # arrêt
-            client.publish("homeassistant/switch/boiler_power/state", "OFF", retain=True)
+            client.publish("boiler/switch/state", "OFF", retain=True)
     
     elif topic == "homeassistant/number/boiler_temp/set":
         temp = int(float(payload))
@@ -92,16 +92,21 @@ def main():
     # Switch ON/OFF
     switch_config = {
         "name": "Boiler Power",
-        "command_topic": "homeassistant/switch/boiler_power/set",
-        "state_topic": "homeassistant/switch/boiler_power/state",
-        "unique_id": "boiler_power",
-        "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
+        "command_topic": "boiler/switch/set",
+        "state_topic": "boiler/switch/state",
+        "unique_id": "boiler_power_switch",
+        "device": {
+            "identifiers": ["boiler_device"],
+            "name": "Boiler",
+            "manufacturer": "Custom",
+            "model": "TCP Bridge"
+        }
     }
     print("Publication configuration switch...")
     sys.stdout.flush()
-    client.publish("homeassistant/switch/boiler_power/config", json.dumps(switch_config), retain=True)
-    client.publish("homeassistant/switch/boiler_power/state", "OFF", retain=True)
-    print("Switch configuré")
+    result1 = client.publish("homeassistant/switch/boiler_power_switch/config", json.dumps(switch_config), retain=True)
+    result2 = client.publish("boiler/switch/state", "OFF", retain=True)
+    print(f"Switch configuré - Résultats: {result1.rc}, {result2.rc}")
     sys.stdout.flush()
     
     # Number pour consigne température (plus simple que climate)
@@ -125,7 +130,7 @@ def main():
     
     print("Souscription aux topics...")
     sys.stdout.flush()
-    client.subscribe("homeassistant/switch/boiler_power/set")
+    client.subscribe("boiler/switch/set")
     client.subscribe("homeassistant/number/boiler_temp/set")
     print("Souscriptions actives")
     sys.stdout.flush()
