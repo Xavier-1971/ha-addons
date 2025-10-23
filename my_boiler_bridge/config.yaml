@@ -13,7 +13,7 @@ startup: services
 boot: auto
 init: false
 options:
-  tcp_host: "192.168.1.100"
+  tcp_host: "192.168.1.16"
   tcp_port: 8899
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883

@@ -33,16 +33,19 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()
     
-    if topic == "homeassistant/switch/boiler/set":
+    if topic == "homeassistant/switch/boiler_power/set":
         if payload == "ON":
             envoyer_trame_tcp(tcp_host, tcp_port, "J30253000000000001", client)  # mise en marche
+            client.publish("homeassistant/switch/boiler_power/state", "ON", retain=True)
         else:
             envoyer_trame_tcp(tcp_host, tcp_port, "J30254000000000001", client)  # arrêt
+            client.publish("homeassistant/switch/boiler_power/state", "OFF", retain=True)
     
-    elif topic == "homeassistant/climate/boiler/temperature/set":
+    elif topic == "homeassistant/number/boiler_temp/set":
         temp = int(float(payload))
         trame = f"B20180000000000{temp:03d}"
         envoyer_trame_tcp(tcp_host, tcp_port, trame, client)  # envoi consigne
+        client.publish("homeassistant/number/boiler_temp/state", str(temp), retain=True)
 
 def main():
     options = json.loads(os.environ.get('OPTIONS', '{}'))
@@ -59,29 +62,31 @@ def main():
     # Switch ON/OFF
     switch_config = {
         "name": "Boiler Power",
-        "command_topic": "homeassistant/switch/boiler/set",
-        "state_topic": "homeassistant/switch/boiler/state",
+        "command_topic": "homeassistant/switch/boiler_power/set",
+        "state_topic": "homeassistant/switch/boiler_power/state",
         "unique_id": "boiler_power",
-        "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler"}
+        "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
     }
-    client.publish("homeassistant/switch/boiler/config", json.dumps(switch_config), retain=True)
+    client.publish("homeassistant/switch/boiler_power/config", json.dumps(switch_config), retain=True)
+    client.publish("homeassistant/switch/boiler_power/state", "OFF", retain=True)
     
-    # Climate (consigne température)
-    climate_config = {
-        "name": "Boiler Thermostat",
-        "temperature_command_topic": "homeassistant/climate/boiler/temperature/set",
-        "temperature_state_topic": "homeassistant/climate/boiler/temperature/state",
-        "current_temperature_topic": "homeassistant/climate/boiler/current_temp",
-        "min_temp": 30,
-        "max_temp": 80,
-        "temp_step": 1,
-        "unique_id": "boiler_thermostat",
-        "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler"}
+    # Number pour consigne température (plus simple que climate)
+    temp_config = {
+        "name": "Boiler Temperature",
+        "command_topic": "homeassistant/number/boiler_temp/set",
+        "state_topic": "homeassistant/number/boiler_temp/state",
+        "min": 30,
+        "max": 80,
+        "step": 1,
+        "unit_of_measurement": "°C",
+        "unique_id": "boiler_temp",
+        "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
     }
-    client.publish("homeassistant/climate/boiler/config", json.dumps(climate_config), retain=True)
+    client.publish("homeassistant/number/boiler_temp/config", json.dumps(temp_config), retain=True)
+    client.publish("homeassistant/number/boiler_temp/state", "50", retain=True)
     
-    client.subscribe("homeassistant/switch/boiler/set")
-    client.subscribe("homeassistant/climate/boiler/temperature/set")
+    client.subscribe("homeassistant/switch/boiler_power/set")
+    client.subscribe("homeassistant/number/boiler_temp/set")
     
     client.loop_forever()
 
