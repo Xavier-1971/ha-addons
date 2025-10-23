@@ -86,7 +86,13 @@ def main():
     print("Connexion à MQTT...")
     sys.stdout.flush()
     client.connect(mqtt_host, mqtt_port, 60)
+    client.loop_start()
     print("Connecté à MQTT")
+    sys.stdout.flush()
+    
+    # Attendre que la connexion soit stable
+    time.sleep(2)
+    print("Connexion MQTT stabilisée")
     sys.stdout.flush()
     
     # Switch ON/OFF
@@ -137,7 +143,13 @@ def main():
     
     print("Démarrage de la boucle MQTT...")
     sys.stdout.flush()
-    client.loop_forever()
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        client.loop_stop()
+        client.disconnect()
 
 if __name__ == "__main__":
     print("Lancement de main()")
