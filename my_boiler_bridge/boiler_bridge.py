@@ -62,10 +62,12 @@ def main():
     tcp_port = options.get('tcp_port', 8899)
     mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
-    mqtt_user = options.get('mqtt_user', '')
-    mqtt_password = options.get('mqtt_password', '')
+    mqtt_user = options.get('mqtt_user') or os.environ.get('MQTT_USER', '')
+    mqtt_password = options.get('mqtt_password') or os.environ.get('MQTT_PASSWORD', '')
     
-    print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
+    print(f"Variables d'environnement MQTT: {[k for k in os.environ.keys() if 'MQTT' in k]}")
+    
+    print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}, User: {mqtt_user}")
     sys.stdout.flush()
     
     print("Création client MQTT...")
@@ -85,11 +87,13 @@ def main():
     client.on_connect = on_connect
     
     # Configuration authentification MQTT
-    if mqtt_user:
+    if mqtt_user and mqtt_password:
         client.username_pw_set(mqtt_user, mqtt_password)
         print(f"Authentification MQTT configurée pour: {mqtt_user}")
     else:
-        print("Pas d'authentification MQTT")
+        print(f"Pas d'authentification MQTT (user: '{mqtt_user}', pwd: {'***' if mqtt_password else 'vide'})")
+        # Essai sans authentification
+        print("Tentative de connexion sans authentification...")
     sys.stdout.flush()
     
     print("Callbacks configurés")
