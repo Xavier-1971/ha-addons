@@ -1,5 +1,5 @@
 name: "Boiler TCP Bridge"
-version: "1.0.0"
+version: "1.0.1"
 slug: "boiler_tcp_bridge"
 description: "Bridge TCP chaudière vers MQTT pour Home Assistant"
 url: "https://github.com/xavier-1971/ha-addons/tree/main/my_boiler_bridge"
