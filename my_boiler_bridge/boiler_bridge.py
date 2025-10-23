@@ -6,8 +6,7 @@ import sys
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
-print("Script Python démarré")
-sys.stdout.flush()
+print("Boiler TCP Bridge démarré")
 
 def envoyer_trame_tcp(adresse, port, trame, mqtt_client):
     try:
@@ -38,11 +37,14 @@ def on_message(client, userdata, msg):
     payload = msg.payload.decode()
     
     if topic == "boiler/switch/set":
+        print(f"Commande switch reçue: {payload}")
         if payload == "ON":
-            envoyer_trame_tcp(tcp_host, tcp_port, "J30253000000000001", client)  # mise en marche
+            print("Démarrage chaudière...")
+            envoyer_trame_tcp(tcp_host, tcp_port, "J30253000000000001", client)
             client.publish("boiler/switch/state", "ON", retain=True)
         else:
-            envoyer_trame_tcp(tcp_host, tcp_port, "J30254000000000001", client)  # arrêt
+            print("Arrêt chaudière...")
+            envoyer_trame_tcp(tcp_host, tcp_port, "J30254000000000001", client)
             client.publish("boiler/switch/state", "OFF", retain=True)
     
     elif topic == "homeassistant/number/boiler_temp/set":
@@ -52,22 +54,16 @@ def on_message(client, userdata, msg):
         client.publish("homeassistant/number/boiler_temp/state", str(temp), retain=True)
 
 def main():
-    print("Début de main()")
-    sys.stdout.flush()
-    
-    print("Lecture des options...")
-    sys.stdout.flush()
     options = json.loads(os.environ.get('OPTIONS', '{}'))
-    print(f"Options: {options}")
-    sys.stdout.flush()
+    print(f"Configuration chargée: {len(options)} paramètres")
     
     # Utiliser les valeurs par défaut si options vide
     tcp_host = options.get('tcp_host', '192.168.1.16')
     tcp_port = options.get('tcp_port', 8899)
     mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
-    mqtt_user = options.get('mqtt_user', 'mqtt_user')  # temporaire
-    mqtt_password = options.get('mqtt_password', 'OdroidRedmi1234!')  # à changer
+    mqtt_user = options.get('mqtt_user', 'mqtt_user')
+    mqtt_password = options.get('mqtt_password', '')
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     sys.stdout.flush()
