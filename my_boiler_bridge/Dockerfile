@@ -3,7 +3,7 @@ FROM ${BUILD_FROM}
 
 # Install Python dependencies
 RUN apk add --no-cache python3 py3-pip
-RUN pip3 install paho-mqtt
+RUN pip3 install --break-system-packages paho-mqtt
 
 # Copy files
 COPY boiler_bridge.py /app/boiler_bridge.py
