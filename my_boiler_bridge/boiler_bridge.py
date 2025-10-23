@@ -98,9 +98,11 @@ def main():
         "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
     }
     print("Publication configuration switch...")
+    sys.stdout.flush()
     client.publish("homeassistant/switch/boiler_power/config", json.dumps(switch_config), retain=True)
     client.publish("homeassistant/switch/boiler_power/state", "OFF", retain=True)
     print("Switch configuré")
+    sys.stdout.flush()
     
     # Number pour consigne température (plus simple que climate)
     temp_config = {
@@ -115,16 +117,21 @@ def main():
         "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
     }
     print("Publication configuration temperature...")
+    sys.stdout.flush()
     client.publish("homeassistant/number/boiler_temp/config", json.dumps(temp_config), retain=True)
     client.publish("homeassistant/number/boiler_temp/state", "50", retain=True)
     print("Temperature configurée")
+    sys.stdout.flush()
     
     print("Souscription aux topics...")
+    sys.stdout.flush()
     client.subscribe("homeassistant/switch/boiler_power/set")
     client.subscribe("homeassistant/number/boiler_temp/set")
     print("Souscriptions actives")
+    sys.stdout.flush()
     
     print("Démarrage de la boucle MQTT...")
+    sys.stdout.flush()
     client.loop_forever()
 
 if __name__ == "__main__":
