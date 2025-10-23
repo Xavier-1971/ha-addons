@@ -17,12 +17,12 @@ options:
   tcp_port: 8899
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
-  mqtt_user: ""
-  mqtt_password: ""
+  mqtt_user: "user"
+  mqtt_password: "pwd"
 schema:
   tcp_host: "str"
-  tcp_port: "port"
+  tcp_port: "int"
   mqtt_host: "str"
-  mqtt_port: "port"
+  mqtt_port: "int"
   mqtt_user: "str"
   mqtt_password: "str"
