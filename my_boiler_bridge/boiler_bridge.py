@@ -63,7 +63,7 @@ def main():
     mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
     mqtt_user = options.get('mqtt_user', 'mqtt_user')
-    mqtt_password = options.get('mqtt_password', '')
+    mqtt_password = options.get('mqtt_password', 'OdroidRedmi1234!')  # TEMPORAIRE - à configurer dans HA
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     sys.stdout.flush()
