@@ -1,0 +1,12 @@
+name: "Boiler TCP Bridge"
+version: "1.0"
+slug: "boiler_tcp_bridge"
+description: "Bridge TCP chaudière → MQTT"
+arch:
+  - aarch64
+  - amd64
+startup: services
+boot: auto
+options: {}
+schema: {}
+image: "local/boiler_tcp_bridge:latest"
