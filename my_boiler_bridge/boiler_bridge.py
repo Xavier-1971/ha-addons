@@ -61,18 +61,14 @@ def main():
     print(f"Options: {options}")
     sys.stdout.flush()
     
-    tcp_host = options.get('tcp_host')
-    tcp_port = options.get('tcp_port')
+    # Utiliser les valeurs par défaut si options vide
+    tcp_host = options.get('tcp_host', '192.168.1.16')
+    tcp_port = options.get('tcp_port', 8899)
     mqtt_host = options.get('mqtt_host', 'core-mosquitto')
     mqtt_port = options.get('mqtt_port', 1883)
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     sys.stdout.flush()
-    
-    if not tcp_host or not tcp_port:
-        print("ERREUR: tcp_host et tcp_port doivent être configurés dans l'addon")
-        sys.stdout.flush()
-        return
     
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning)
