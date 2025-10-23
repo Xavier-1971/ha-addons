@@ -64,7 +64,7 @@ def main():
     # Utiliser les valeurs par défaut si options vide
     tcp_host = options.get('tcp_host', '192.168.1.16')
     tcp_port = options.get('tcp_port', 8899)
-    mqtt_host = options.get('mqtt_host', 'core-mosquitto')
+    mqtt_host = options.get('mqtt_host', '127.0.0.1')  # IP locale au lieu de core-mosquitto
     mqtt_port = options.get('mqtt_port', 1883)
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
@@ -78,8 +78,13 @@ def main():
     print("Client MQTT créé")
     sys.stdout.flush()
     
+    def on_connect(client, userdata, flags, rc):
+        print(f"Connexion MQTT: code {rc}")
+        sys.stdout.flush()
+    
     client.user_data_set((tcp_host, tcp_port))
     client.on_message = on_message
+    client.on_connect = on_connect
     print("Callbacks configurés")
     sys.stdout.flush()
     
