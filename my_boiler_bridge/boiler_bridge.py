@@ -69,6 +69,11 @@ def main():
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     sys.stdout.flush()
     
+    if not tcp_host or not tcp_port:
+        print("ERREUR: tcp_host et tcp_port doivent être configurés dans l'addon")
+        sys.stdout.flush()
+        return
+    
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     client = mqtt.Client()
