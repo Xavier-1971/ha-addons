@@ -2,10 +2,12 @@ import socket
 import time
 import json
 import os
+import sys
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
 print("Script Python démarré")
+sys.stdout.flush()
 
 def envoyer_trame_tcp(adresse, port, trame, mqtt_client):
     try:
@@ -108,9 +110,11 @@ def main():
 
 if __name__ == "__main__":
     print("Lancement de main()")
+    sys.stdout.flush()
     try:
         main()
     except Exception as e:
         print(f"Erreur dans main(): {e}")
+        sys.stdout.flush()
         import traceback
         traceback.print_exc()
