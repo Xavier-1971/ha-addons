@@ -146,7 +146,7 @@ def main():
         "name": "Boiler Temperature",
         "command_topic": "homeassistant/number/boiler_temp/set",
         "state_topic": "homeassistant/number/boiler_temp/state",
-        "min": 30,
+        "min": 40,
         "max": 80,
         "step": 1,
         "unit_of_measurement": "°C",
