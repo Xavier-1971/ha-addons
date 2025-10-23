@@ -58,7 +58,9 @@ def main():
     
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}")
     
-    client = mqtt.Client(client_id="boiler_bridge")
+    import warnings
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    client = mqtt.Client()
     client.user_data_set((tcp_host, tcp_port))
     client.on_message = on_message
     
