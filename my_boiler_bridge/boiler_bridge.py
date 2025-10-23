@@ -5,6 +5,8 @@ import os
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
+print("Script Python démarré")
+
 def envoyer_trame_tcp(adresse, port, trame, mqtt_client):
     try:
         with socket.create_connection((adresse, port), timeout=5) as client_socket:
@@ -103,4 +105,10 @@ def main():
     client.loop_forever()
 
 if __name__ == "__main__":
-    main()
+    print("Lancement de main()")
+    try:
+        main()
+    except Exception as e:
+        print(f"Erreur dans main(): {e}")
+        import traceback
+        traceback.print_exc()
