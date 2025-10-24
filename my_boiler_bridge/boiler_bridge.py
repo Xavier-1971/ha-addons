@@ -57,13 +57,13 @@ def main():
     options = json.loads(os.environ.get('OPTIONS', '{}'))
     print(f"Configuration chargée: {len(options)} paramètres")
     
-    # Utiliser les valeurs par défaut si options vide
-    tcp_host = options.get('tcp_host', '192.168.1.16')
-    tcp_port = options.get('tcp_port', 8899)
-    mqtt_host = options.get('mqtt_host', 'core-mosquitto')
-    mqtt_port = options.get('mqtt_port', 1883)
-    mqtt_user = options.get('mqtt_user') or os.environ.get('MQTT_USER', '')
-    mqtt_password = options.get('mqtt_password') or os.environ.get('MQTT_PASSWORD', '')
+    # Lecture depuis les variables d'environnement (exportées par run.sh)
+    tcp_host = os.environ.get('TCP_HOST', '192.168.1.16')
+    tcp_port = int(os.environ.get('TCP_PORT', '8899'))
+    mqtt_host = os.environ.get('MQTT_HOST', 'core-mosquitto')
+    mqtt_port = int(os.environ.get('MQTT_PORT', '1883'))
+    mqtt_user = os.environ.get('MQTT_USER', '')
+    mqtt_password = os.environ.get('MQTT_PASSWORD', '')
     
     print(f"Variables d'environnement MQTT: {[k for k in os.environ.keys() if 'MQTT' in k]}")
     
