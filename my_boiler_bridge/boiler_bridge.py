@@ -225,7 +225,7 @@ def main():
             client = mqtt.Client()
     print("Client MQTT créé", flush=True)
     
-    def on_connect(client, userdata, flags, rc):
+    def on_connect(client, userdata, flags, rc, properties=None):
         print(f"Connexion MQTT: code {rc}", flush=True)
     
     client.user_data_set((tcp_host, tcp_port))
