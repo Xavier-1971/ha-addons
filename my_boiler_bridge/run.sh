@@ -1,8 +1,5 @@
 #!/usr/bin/with-contenv bashio
 set -e
-
-echo "Démarrage du pont chaudière TCP..."
-
 # Export des variables de configuration
 export TCP_HOST="$(bashio::config 'tcp_host')"
 export TCP_PORT="$(bashio::config 'tcp_port')"

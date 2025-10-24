@@ -2,11 +2,149 @@ import socket
 import time
 import json
 import os
-import sys
 from datetime import datetime
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt  # type: ignore
 
-print("Boiler TCP Bridge démarré")
+def setup_mqtt_discovery(client):
+    """Configure MQTT Discovery une seule fois au démarrage"""
+    # Switch ON/OFF
+    switch_config = {
+        "name": "Boiler Power",
+        "command_topic": "boiler/switch/set",
+        "state_topic": "boiler/switch/state",
+        "unique_id": "boiler_power_switch",
+        "device": {
+            "identifiers": ["boiler_device"],
+            "name": "Boiler",
+            "manufacturer": "Custom",
+            "model": "TCP Bridge"
+        }
+    }
+    
+    # Number pour consigne température
+    temp_config = {
+        "name": "Boiler Temperature",
+        "command_topic": "boiler/temp/set",
+        "state_topic": "boiler/temp/state",
+        "min": 40,
+        "max": 80,
+        "step": 1,
+        "unit_of_measurement": "°C",
+        "unique_id": "boiler_temp",
+        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+    }
+    
+    # Capteur température eau
+    water_temp_config = {
+        "name": "Boiler Water Temperature",
+        "state_topic": "boiler/water_temp/state",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "unique_id": "boiler_water_temp",
+        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+    }
+    
+    # Capteur température fumée
+    smoke_temp_config = {
+        "name": "Boiler Smoke Temperature",
+        "state_topic": "boiler/smoke_temp/state",
+        "unit_of_measurement": "°C",
+        "device_class": "temperature",
+        "unique_id": "boiler_smoke_temp",
+        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+    }
+    
+    # Capteur code erreur
+    error_config = {
+        "name": "Boiler Error Code",
+        "state_topic": "boiler/error/state",
+        "unique_id": "boiler_error",
+        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+    }
+    
+    print("Publication configurations MQTT Discovery...", flush=True)
+    client.publish("homeassistant/switch/boiler_power_switch/config", json.dumps(switch_config), retain=True)
+    client.publish("homeassistant/number/boiler_temp/config", json.dumps(temp_config), retain=True)
+    client.publish("homeassistant/sensor/boiler_water_temp/config", json.dumps(water_temp_config), retain=True)
+    client.publish("homeassistant/sensor/boiler_smoke_temp/config", json.dumps(smoke_temp_config), retain=True)
+    client.publish("homeassistant/sensor/boiler_error/config", json.dumps(error_config), retain=True)
+    
+    # États initiaux
+    client.publish("boiler/switch/state", "OFF", retain=True)
+    client.publish("boiler/temp/state", "50", retain=True)
+    client.publish("boiler/water_temp/state", "0", retain=True)
+    client.publish("boiler/smoke_temp/state", "0", retain=True)
+    client.publish("boiler/error/state", "0", retain=True)
+    print("MQTT Discovery configuré", flush=True)
+
+def analyser_reponse(trame_envoyee, reponse, mqtt_client):
+    """Analyse la réponse de la chaudière et publie les états réels"""
+    if not reponse:
+        return False
+    
+    reponse_clean = reponse.strip('\x08\r\n')
+    
+    # Commandes ON/OFF
+    if trame_envoyee == "J30253000000000001" and reponse_clean == "I30253000000000000":
+        mqtt_client.publish("boiler/switch/state", "ON", retain=True)
+        print("Chaudière démarrée avec succès")
+        return True
+    elif trame_envoyee == "J30254000000000001" and reponse_clean == "I30254000000000000":
+        mqtt_client.publish("boiler/switch/state", "OFF", retain=True)
+        print("Chaudière arrêtée avec succès")
+        return True
+    
+    # Lecture état ON/OFF (I30004000000000000 -> J30004000000000001)
+    elif trame_envoyee == "I30004000000000000" and reponse_clean.startswith("J30004000000000"):
+        etat_code = reponse_clean[-3:]
+        if etat_code == "001":
+            mqtt_client.publish("boiler/switch/state", "ON", retain=True)
+            print("État chaudière : ON")
+        else:
+            mqtt_client.publish("boiler/switch/state", "OFF", retain=True)
+            print(f"État chaudière : OFF (code: {etat_code})")
+        return True
+    
+    # Consigne température (écriture)
+    elif trame_envoyee.startswith("B201800000000000") and reponse_clean.startswith("A201800000000000"):
+        temp_confirmee = int(reponse_clean[-3:])
+        mqtt_client.publish("boiler/temp/state", str(temp_confirmee), retain=True)
+        print(f"Consigne température confirmée : {temp_confirmee}°C")
+        return True
+    
+    # Consigne température (lecture)
+    elif trame_envoyee == "A20180000000000000" and reponse_clean.startswith("B201800000000000"):
+        temp_actuelle = int(reponse_clean[-3:])
+        mqtt_client.publish("boiler/temp/state", str(temp_actuelle), retain=True)
+        print(f"Consigne température actuelle : {temp_actuelle}°C")
+        return True
+    
+    # Température eau (I30017000000000000 -> J30017000000000XXX)
+    elif trame_envoyee == "I30017000000000000" and reponse_clean.startswith("J30017000000000"):
+        temp_eau = int(reponse_clean[-3:])
+        mqtt_client.publish("boiler/water_temp/state", str(temp_eau), retain=True)
+        print(f"Température eau : {temp_eau}°C")
+        return True
+    
+    # Température fumée (I30005000000000000 -> J30005000000000XXX)
+    elif trame_envoyee == "I30005000000000000" and reponse_clean.startswith("J30005000000000"):
+        temp_fumee = int(reponse_clean[-3:])
+        mqtt_client.publish("boiler/smoke_temp/state", str(temp_fumee), retain=True)
+        print(f"Température fumée : {temp_fumee}°C")
+        return True
+    
+    # Code erreur (I30002000000000000 -> J30002000000000XXX)
+    elif trame_envoyee == "I30002000000000000" and reponse_clean.startswith("J30002000000000"):
+        code_erreur = int(reponse_clean[-3:])
+        mqtt_client.publish("boiler/error/state", str(code_erreur), retain=True)
+        if code_erreur == 0:
+            print("Aucune erreur")
+        else:
+            print(f"Code erreur : {code_erreur}")
+        return True
+    
+    print(f"Réponse non reconnue : {reponse_clean}")
+    return False
 
 def envoyer_trame_tcp(adresse, port, trame, mqtt_client):
     try:
@@ -19,13 +157,8 @@ def envoyer_trame_tcp(adresse, port, trame, mqtt_client):
                 reponse_str = reponse.decode(errors='ignore')
                 print(f"[{datetime.now()}] Réponse : {reponse_str}")
                 
-                # Publier sur MQTT pour Home Assistant
-                mqtt_client.publish("homeassistant/sensor/boiler/state", json.dumps({
-                    "timestamp": datetime.now().isoformat(),
-                    "trame": trame,
-                    "response": reponse_str,
-                    "raw_hex": reponse.hex()
-                }))
+                # Analyser et exploiter la réponse
+                analyser_reponse(trame, reponse_str, mqtt_client)
                 return reponse_str
     except Exception as e:
         print(f"Erreur de connexion : {e}")
@@ -41,22 +174,17 @@ def on_message(client, userdata, msg):
         if payload == "ON":
             print("Démarrage chaudière...")
             envoyer_trame_tcp(tcp_host, tcp_port, "J30253000000000001", client)
-            client.publish("boiler/switch/state", "ON", retain=True)
         else:
             print("Arrêt chaudière...")
             envoyer_trame_tcp(tcp_host, tcp_port, "J30254000000000001", client)
-            client.publish("boiler/switch/state", "OFF", retain=True)
     
-    elif topic == "homeassistant/number/boiler_temp/set":
+    elif topic == "boiler/temp/set":
         temp = int(float(payload))
         trame = f"B20180000000000{temp:03d}"
-        envoyer_trame_tcp(tcp_host, tcp_port, trame, client)  # envoi consigne
-        client.publish("homeassistant/number/boiler_temp/state", str(temp), retain=True)
+        print(f"Réglage consigne : {temp}°C")
+        envoyer_trame_tcp(tcp_host, tcp_port, trame, client)
 
 def main():
-    options = json.loads(os.environ.get('OPTIONS', '{}'))
-    print(f"Configuration chargée: {len(options)} paramètres")
-    
     # Lecture depuis les variables d'environnement (exportées par run.sh)
     tcp_host = os.environ.get('TCP_HOST', '192.168.1.16')
     tcp_port = int(os.environ.get('TCP_PORT') or '8899')
@@ -67,20 +195,21 @@ def main():
     
     print(f"Variables d'environnement MQTT: {[k for k in os.environ.keys() if 'MQTT' in k]}")
     
-    print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}, User: {mqtt_user}")
-    sys.stdout.flush()
+    print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}, User: {mqtt_user}", flush=True)
     
-    print("Création client MQTT...")
-    sys.stdout.flush()
-    import warnings
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    client = mqtt.Client()
-    print("Client MQTT créé")
-    sys.stdout.flush()
+    print("Création client MQTT...", flush=True)
+    # Utilisation de l'ancienne API MQTT pour éviter le warning
+    try:
+        # Nouvelle API (si disponible)
+        import paho.mqtt.client as mqtt_new
+        client = mqtt_new.Client(mqtt_new.CallbackAPIVersion.VERSION1)
+    except (AttributeError, ImportError):
+        # Ancienne API (fallback)
+        client = mqtt.Client()
+    print("Client MQTT créé", flush=True)
     
     def on_connect(client, userdata, flags, rc):
-        print(f"Connexion MQTT: code {rc}")
-        sys.stdout.flush()
+        print(f"Connexion MQTT: code {rc}", flush=True)
     
     client.user_data_set((tcp_host, tcp_port))
     client.on_message = on_message
@@ -89,105 +218,76 @@ def main():
     # Configuration authentification MQTT
     if mqtt_user and mqtt_password:
         client.username_pw_set(mqtt_user, mqtt_password)
-        print(f"Authentification MQTT configurée pour: {mqtt_user}")
+        print(f"Authentification MQTT configurée pour: {mqtt_user}", flush=True)
     else:
-        print(f"Pas d'authentification MQTT (user: '{mqtt_user}', pwd: {'***' if mqtt_password else 'vide'})")
+        print(f"Pas d'authentification MQTT (user: '{mqtt_user}', pwd: {'***' if mqtt_password else 'vide'})", flush=True)
         # Essai sans authentification
-        print("Tentative de connexion sans authentification...")
-    sys.stdout.flush()
+        print("Tentative de connexion sans authentification...", flush=True)
     
-    print("Callbacks configurés")
-    sys.stdout.flush()
+    print("Callbacks configurés", flush=True)
+    print("Connexion à MQTT...", flush=True)
     
-    print("Connexion à MQTT...")
-    sys.stdout.flush()
     try:
         client.connect(mqtt_host, mqtt_port, 60)
         client.loop_start()
-        print("Connecté à MQTT")
-        sys.stdout.flush()
+        print("Connecté à MQTT", flush=True)
     except Exception as e:
-        print(f"Erreur connexion MQTT: {e}")
-        print("Tentative avec 'localhost'...")
-        sys.stdout.flush()
+        print(f"Erreur connexion MQTT: {e}", flush=True)
+        print("Tentative avec 'localhost'...", flush=True)
         try:
             client.connect('localhost', mqtt_port, 60)
             client.loop_start()
-            print("Connecté à MQTT via localhost")
-            sys.stdout.flush()
+            print("Connecté à MQTT via localhost", flush=True)
         except Exception as e2:
-            print(f"Erreur connexion localhost: {e2}")
-            sys.stdout.flush()
+            print(f"Erreur connexion localhost: {e2}", flush=True)
             return
     
     # Attendre que la connexion soit stable
     time.sleep(2)
-    print("Connexion MQTT stabilisée")
-    sys.stdout.flush()
+    print("Connexion MQTT stabilisée", flush=True)
     
-    # Switch ON/OFF
-    switch_config = {
-        "name": "Boiler Power",
-        "command_topic": "boiler/switch/set",
-        "state_topic": "boiler/switch/state",
-        "unique_id": "boiler_power_switch",
-        "device": {
-            "identifiers": ["boiler_device"],
-            "name": "Boiler",
-            "manufacturer": "Custom",
-            "model": "TCP Bridge"
-        }
-    }
-    print("Publication configuration switch...")
-    sys.stdout.flush()
-    result1 = client.publish("homeassistant/switch/boiler_power_switch/config", json.dumps(switch_config), retain=True)
-    result2 = client.publish("boiler/switch/state", "OFF", retain=True)
-    print(f"Switch configuré - Résultats: {result1.rc}, {result2.rc}")
-    sys.stdout.flush()
+    # Configuration MQTT Discovery (une seule fois)
+    setup_mqtt_discovery(client)
     
-    # Number pour consigne température (plus simple que climate)
-    temp_config = {
-        "name": "Boiler Temperature",
-        "command_topic": "homeassistant/number/boiler_temp/set",
-        "state_topic": "homeassistant/number/boiler_temp/state",
-        "min": 40,
-        "max": 80,
-        "step": 1,
-        "unit_of_measurement": "°C",
-        "unique_id": "boiler_temp",
-        "device": {"identifiers": ["boiler_tcp_bridge"], "name": "Boiler", "manufacturer": "Custom"}
-    }
-    print("Publication configuration temperature...")
-    sys.stdout.flush()
-    client.publish("homeassistant/number/boiler_temp/config", json.dumps(temp_config), retain=True)
-    client.publish("homeassistant/number/boiler_temp/state", "50", retain=True)
-    print("Temperature configurée")
-    sys.stdout.flush()
-    
-    print("Souscription aux topics...")
-    sys.stdout.flush()
+    print("Souscription aux topics...", flush=True)
     client.subscribe("boiler/switch/set")
-    client.subscribe("homeassistant/number/boiler_temp/set")
-    print("Souscriptions actives")
-    sys.stdout.flush()
+    client.subscribe("boiler/temp/set")
+    print("Souscriptions actives", flush=True)
     
-    print("Démarrage de la boucle MQTT...")
-    sys.stdout.flush()
+    print("Démarrage de la boucle MQTT...", flush=True)
+    
+    # Fonction pour interroger les capteurs
+    def interroger_capteurs():
+        envoyer_trame_tcp(tcp_host, tcp_port, "I30004000000000000", client)  # état ON/OFF
+        time.sleep(1)
+        envoyer_trame_tcp(tcp_host, tcp_port, "A20180000000000000", client)  # consigne actuelle
+        time.sleep(1)
+        envoyer_trame_tcp(tcp_host, tcp_port, "I30017000000000000", client)  # temp eau
+        time.sleep(1)
+        envoyer_trame_tcp(tcp_host, tcp_port, "I30005000000000000", client)  # temp fumée
+        time.sleep(1)
+        envoyer_trame_tcp(tcp_host, tcp_port, "I30002000000000000", client)  # code erreur
+    
+    # Interrogation initiale
+    interroger_capteurs()
     
     try:
+        compteur = 0
         while True:
-            time.sleep(1)
+            time.sleep(30)  # Attendre 30 secondes
+            compteur += 1
+            if compteur >= 2:  # Toutes les 60 secondes (30s * 2)
+                interroger_capteurs()
+                compteur = 0
     except KeyboardInterrupt:
         client.loop_stop()
         client.disconnect()
 
 if __name__ == "__main__":
-    print("Lancement de main()")
-    sys.stdout.flush()
+    print("Lancement de main())", flush=True)
     try:
         main()
     except Exception as e:
-        print(f"Erreur dans main(): {e}")
-        sys.stdout.flush()
+        print(f"Erreur dans main(): {e}", flush=True)
         import traceback
         traceback.print_exc()
