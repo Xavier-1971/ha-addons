@@ -276,8 +276,8 @@ def main():
     print("Souscription aux topics...", flush=True)
     client.subscribe("boiler/switch/set")
     client.subscribe("boiler/temp/set")
-    print("Souscriptions actives", flush=True)
     
+    print("Souscriptions actives", flush=True)
     print("Démarrage de la boucle MQTT...", flush=True)
     
     # Fonction pour interroger les capteurs
