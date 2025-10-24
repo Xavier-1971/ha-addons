@@ -3,6 +3,9 @@ set -e
 
 echo "Démarrage du pont chaudière TCP..."
 
+# Source bashio library
+source /usr/lib/bashio/bashio
+
 # Export des variables de configuration
 export TCP_HOST="$(bashio::config 'tcp_host')"
 export TCP_PORT="$(bashio::config 'tcp_port')"

@@ -59,9 +59,9 @@ def main():
     
     # Lecture depuis les variables d'environnement (exportées par run.sh)
     tcp_host = os.environ.get('TCP_HOST', '192.168.1.16')
-    tcp_port = int(os.environ.get('TCP_PORT', '8899'))
-    mqtt_host = os.environ.get('MQTT_HOST', 'core-mosquitto')
-    mqtt_port = int(os.environ.get('MQTT_PORT', '1883'))
+    tcp_port = int(os.environ.get('TCP_PORT') or '8899')
+    mqtt_host = os.environ.get('MQTT_HOST') or 'core-mosquitto'
+    mqtt_port = int(os.environ.get('MQTT_PORT') or '1883')
     mqtt_user = os.environ.get('MQTT_USER', '')
     mqtt_password = os.environ.get('MQTT_PASSWORD', '')
     
