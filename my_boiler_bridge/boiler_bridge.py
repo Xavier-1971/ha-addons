@@ -31,7 +31,12 @@ def setup_mqtt_discovery(client):
         "step": 1,
         "unit_of_measurement": "°C",
         "unique_id": "boiler_temp",
-        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+        "device": {
+            "identifiers": ["boiler_device"],
+            "name": "Boiler",
+            "manufacturer": "Custom",
+            "model": "TCP Bridge"
+        }
     }
     
     # Capteur température eau
@@ -41,7 +46,12 @@ def setup_mqtt_discovery(client):
         "unit_of_measurement": "°C",
         "device_class": "temperature",
         "unique_id": "boiler_water_temp",
-        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+        "device": {
+            "identifiers": ["boiler_device"],
+            "name": "Boiler",
+            "manufacturer": "Custom",
+            "model": "TCP Bridge"
+        }
     }
     
     # Capteur température fumée
@@ -51,7 +61,12 @@ def setup_mqtt_discovery(client):
         "unit_of_measurement": "°C",
         "device_class": "temperature",
         "unique_id": "boiler_smoke_temp",
-        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+        "device": {
+            "identifiers": ["boiler_device"],
+            "name": "Boiler",
+            "manufacturer": "Custom",
+            "model": "TCP Bridge"
+        }
     }
     
     # Capteur code erreur
@@ -59,7 +74,12 @@ def setup_mqtt_discovery(client):
         "name": "Boiler Error Code",
         "state_topic": "boiler/error/state",
         "unique_id": "boiler_error",
-        "device": {"identifiers": ["boiler_device"], "name": "Boiler", "manufacturer": "Custom"}
+        "device": {
+            "identifiers": ["boiler_device"],
+            "name": "Boiler",
+            "manufacturer": "Custom",
+            "model": "TCP Bridge"
+        }
     }
     
     print("Publication configurations MQTT Discovery...", flush=True)
@@ -94,16 +114,7 @@ def analyser_reponse(trame_envoyee, reponse, mqtt_client):
         print("Chaudière arrêtée avec succès")
         return True
     
-    # Lecture état ON/OFF (I30004000000000000 -> J30004000000000001)
-    elif trame_envoyee == "I30004000000000000" and reponse_clean.startswith("J30004000000000"):
-        etat_code = reponse_clean[-3:]
-        if etat_code == "001":
-            mqtt_client.publish("boiler/switch/state", "ON", retain=True)
-            print("État chaudière : ON")
-        else:
-            mqtt_client.publish("boiler/switch/state", "OFF", retain=True)
-            print(f"État chaudière : OFF (code: {etat_code})")
-        return True
+
     
     # Consigne température (écriture)
     elif trame_envoyee.startswith("B201800000000000") and reponse_clean.startswith("A201800000000000"):
@@ -137,10 +148,17 @@ def analyser_reponse(trame_envoyee, reponse, mqtt_client):
     elif trame_envoyee == "I30002000000000000" and reponse_clean.startswith("J30002000000000"):
         code_erreur = int(reponse_clean[-3:])
         mqtt_client.publish("boiler/error/state", str(code_erreur), retain=True)
-        if code_erreur == 0:
-            print("Aucune erreur")
+        
+        # Déterminer l'état ON/OFF basé sur le code d'erreur
+        if code_erreur == 110:
+            mqtt_client.publish("boiler/switch/state", "OFF", retain=True)
+            print(f"Code erreur {code_erreur} - Chaudière à l'arrêt")
         else:
-            print(f"Code erreur : {code_erreur}")
+            mqtt_client.publish("boiler/switch/state", "ON", retain=True)
+            if code_erreur == 0:
+                print("Aucune erreur - Chaudière en marche")
+            else:
+                print(f"Code erreur {code_erreur} - Chaudière en marche")
         return True
     
     print(f"Réponse non reconnue : {reponse_clean}")
@@ -148,7 +166,7 @@ def analyser_reponse(trame_envoyee, reponse, mqtt_client):
 
 def envoyer_trame_tcp(adresse, port, trame, mqtt_client):
     try:
-        with socket.create_connection((adresse, port), timeout=5) as client_socket:
+        with socket.create_connection((adresse, port), timeout=3) as client_socket:
             trame_complete = "08" + ''.join(f"{ord(c):02x}" for c in trame) + "0d"
             client_socket.sendall(bytes.fromhex(trame_complete))
             print(f"[{datetime.now()}] Trame envoyée : {trame}")
@@ -198,14 +216,17 @@ def main():
     print(f"Configuration: TCP {tcp_host}:{tcp_port}, MQTT {mqtt_host}:{mqtt_port}, User: {mqtt_user}", flush=True)
     
     print("Création client MQTT...", flush=True)
-    # Utilisation de l'ancienne API MQTT pour éviter le warning
+    # Utilisation de la nouvelle API MQTT
     try:
-        # Nouvelle API (si disponible)
-        import paho.mqtt.client as mqtt_new
-        client = mqtt_new.Client(mqtt_new.CallbackAPIVersion.VERSION1)
+        # Nouvelle API VERSION2 (recommandée)
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except (AttributeError, ImportError):
-        # Ancienne API (fallback)
-        client = mqtt.Client()
+        # Fallback vers VERSION1 si VERSION2 non disponible
+        try:
+            client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+        except (AttributeError, ImportError):
+            # Ancienne API (fallback final)
+            client = mqtt.Client()
     print("Client MQTT créé", flush=True)
     
     def on_connect(client, userdata, flags, rc):
@@ -258,27 +279,23 @@ def main():
     
     # Fonction pour interroger les capteurs
     def interroger_capteurs():
-        envoyer_trame_tcp(tcp_host, tcp_port, "I30004000000000000", client)  # état ON/OFF
-        time.sleep(1)
+        print("Mise à jour des capteurs...", flush=True)
+        envoyer_trame_tcp(tcp_host, tcp_port, "I30002000000000000", client)  # code erreur + état ON/OFF
+        time.sleep(2)
         envoyer_trame_tcp(tcp_host, tcp_port, "A20180000000000000", client)  # consigne actuelle
-        time.sleep(1)
+        time.sleep(2)
         envoyer_trame_tcp(tcp_host, tcp_port, "I30017000000000000", client)  # temp eau
-        time.sleep(1)
+        time.sleep(2)
         envoyer_trame_tcp(tcp_host, tcp_port, "I30005000000000000", client)  # temp fumée
-        time.sleep(1)
-        envoyer_trame_tcp(tcp_host, tcp_port, "I30002000000000000", client)  # code erreur
+        print("Capteurs mis à jour", flush=True)
     
     # Interrogation initiale
     interroger_capteurs()
     
     try:
-        compteur = 0
         while True:
-            time.sleep(30)  # Attendre 30 secondes
-            compteur += 1
-            if compteur >= 2:  # Toutes les 60 secondes (30s * 2)
-                interroger_capteurs()
-                compteur = 0
+            time.sleep(60)  # Attendre 60 secondes
+            interroger_capteurs()
     except KeyboardInterrupt:
         client.loop_stop()
         client.disconnect()
