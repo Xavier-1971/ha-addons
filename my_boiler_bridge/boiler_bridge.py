@@ -148,17 +148,20 @@ def analyser_reponse(trame_envoyee, reponse, mqtt_client):
     elif trame_envoyee == "I30002000000000000" and reponse_clean.startswith("J30002000000000"):
         code_erreur = int(reponse_clean[-3:])
         mqtt_client.publish("boiler/error/state", str(code_erreur), retain=True)
+        print(f"Code erreur : {code_erreur}")
+        return True
+    
+    # Étape d'allumage (J30011000000000000 -> I30011000000000XXX)
+    elif trame_envoyee == "J30011000000000000" and reponse_clean.startswith("I30011000000000"):
+        etape_allumage = int(reponse_clean[-3:])
         
-        # Déterminer l'état ON/OFF basé sur le code d'erreur
-        if code_erreur == 110:
+        # Déterminer l'état ON/OFF basé sur l'étape d'allumage
+        if etape_allumage == 110:
             mqtt_client.publish("boiler/switch/state", "OFF", retain=True)
-            print(f"Code erreur {code_erreur} - Chaudière à l'arrêt")
+            print(f"Étape d'allumage {etape_allumage} - Chaudière à l'arrêt")
         else:
             mqtt_client.publish("boiler/switch/state", "ON", retain=True)
-            if code_erreur == 0:
-                print("Aucune erreur - Chaudière en marche")
-            else:
-                print(f"Code erreur {code_erreur} - Chaudière en marche")
+            print(f"Étape d'allumage {etape_allumage} - Chaudière en marche")
         return True
     
     print(f"Réponse non reconnue : {reponse_clean}")
@@ -280,7 +283,9 @@ def main():
     # Fonction pour interroger les capteurs
     def interroger_capteurs():
         print("Mise à jour des capteurs...", flush=True)
-        envoyer_trame_tcp(tcp_host, tcp_port, "I30002000000000000", client)  # code erreur + état ON/OFF
+        envoyer_trame_tcp(tcp_host, tcp_port, "J30011000000000000", client)  # étape d'allumage pour état ON/OFF
+        time.sleep(2)
+        envoyer_trame_tcp(tcp_host, tcp_port, "I30002000000000000", client)  # code erreur
         time.sleep(2)
         envoyer_trame_tcp(tcp_host, tcp_port, "A20180000000000000", client)  # consigne actuelle
         time.sleep(2)
