@@ -7,18 +7,20 @@ import paho.mqtt.client as mqtt  # type: ignore
 
 def setup_mqtt_discovery(client):
     """Configure MQTT Discovery une seule fois au démarrage"""
+    device_info = {
+        "identifiers": ["boiler_tcp_bridge"],
+        "name": "Boiler",
+        "manufacturer": "Custom",
+        "model": "TCP Bridge"
+    }
+    
     # Switch ON/OFF
     switch_config = {
         "name": "Boiler Power",
         "command_topic": "boiler/switch/set",
         "state_topic": "boiler/switch/state",
         "unique_id": "boiler_power_switch",
-        "device": {
-            "identifiers": ["boiler_device"],
-            "name": "Boiler",
-            "manufacturer": "Custom",
-            "model": "TCP Bridge"
-        }
+        "device": device_info
     }
     
     # Number pour consigne température
@@ -31,12 +33,7 @@ def setup_mqtt_discovery(client):
         "step": 1,
         "unit_of_measurement": "°C",
         "unique_id": "boiler_temp",
-        "device": {
-            "identifiers": ["boiler_device"],
-            "name": "Boiler",
-            "manufacturer": "Custom",
-            "model": "TCP Bridge"
-        }
+        "device": device_info
     }
     
     # Capteur température eau
@@ -46,12 +43,7 @@ def setup_mqtt_discovery(client):
         "unit_of_measurement": "°C",
         "device_class": "temperature",
         "unique_id": "boiler_water_temp",
-        "device": {
-            "identifiers": ["boiler_device"],
-            "name": "Boiler",
-            "manufacturer": "Custom",
-            "model": "TCP Bridge"
-        }
+        "device": device_info
     }
     
     # Capteur température fumée
@@ -61,12 +53,7 @@ def setup_mqtt_discovery(client):
         "unit_of_measurement": "°C",
         "device_class": "temperature",
         "unique_id": "boiler_smoke_temp",
-        "device": {
-            "identifiers": ["boiler_device"],
-            "name": "Boiler",
-            "manufacturer": "Custom",
-            "model": "TCP Bridge"
-        }
+        "device": device_info
     }
     
     # Capteur code erreur
@@ -74,12 +61,15 @@ def setup_mqtt_discovery(client):
         "name": "Boiler Error Code",
         "state_topic": "boiler/error/state",
         "unique_id": "boiler_error",
-        "device": {
-            "identifiers": ["boiler_device"],
-            "name": "Boiler",
-            "manufacturer": "Custom",
-            "model": "TCP Bridge"
-        }
+        "device": device_info
+    }
+    
+    # Capteur étape d'allumage
+    ignition_config = {
+        "name": "Boiler Ignition Step",
+        "state_topic": "boiler/ignition/state",
+        "unique_id": "boiler_ignition",
+        "device": device_info
     }
     
     print("Publication configurations MQTT Discovery...", flush=True)
@@ -88,6 +78,7 @@ def setup_mqtt_discovery(client):
     client.publish("homeassistant/sensor/boiler_water_temp/config", json.dumps(water_temp_config), retain=True)
     client.publish("homeassistant/sensor/boiler_smoke_temp/config", json.dumps(smoke_temp_config), retain=True)
     client.publish("homeassistant/sensor/boiler_error/config", json.dumps(error_config), retain=True)
+    client.publish("homeassistant/sensor/boiler_ignition/config", json.dumps(ignition_config), retain=True)
     
     # États initiaux
     client.publish("boiler/switch/state", "OFF", retain=True)
@@ -95,6 +86,7 @@ def setup_mqtt_discovery(client):
     client.publish("boiler/water_temp/state", "0", retain=True)
     client.publish("boiler/smoke_temp/state", "0", retain=True)
     client.publish("boiler/error/state", "0", retain=True)
+    client.publish("boiler/ignition/state", "110", retain=True)
     print("MQTT Discovery configuré", flush=True)
 
 def analyser_reponse(trame_envoyee, reponse, mqtt_client):
@@ -154,6 +146,7 @@ def analyser_reponse(trame_envoyee, reponse, mqtt_client):
     # Étape d'allumage (J30011000000000000 -> I30011000000000XXX)
     elif trame_envoyee == "J30011000000000000" and reponse_clean.startswith("I30011000000000"):
         etape_allumage = int(reponse_clean[-3:])
+        mqtt_client.publish("boiler/ignition/state", str(etape_allumage), retain=True)
         
         # Déterminer l'état ON/OFF basé sur l'étape d'allumage
         if etape_allumage == 110:
